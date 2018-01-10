@@ -1,0 +1,118 @@
+---
+title: "RR - Week 4 - Course Project 2"
+author: "Hitesh Kumar"
+date: "January 9, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+#EDA on Storm Data
+##Synopsis
+The report presented uses data from the U.S. National Oceanic and Atmospheric Administration’s (NOAA) storm database. Using this data, we will analyze the impact of severe weather events on population health and economics. The goal will be to answer which type of events are most harmful to population health and also the most damaging as it relates to economic consequences.
+
+##Data Processing
+Set the working directory and load support libraries we’ll use.
+```{r include=FALSE}
+library(dplyr)
+```
+
+```{r}
+ setwd("/home/woodman/")
+storm <- read.csv("repdata_data_StormData.csv", header = T)
+
+```
+
+Filtering the releveant columns 
+```{r echo=TRUE}
+names(storm)
+```
+
+```{r}
+health<-storm[,c(8,23:24)]
+property<-storm[,c(8,25:28)]
+```
+
+
+##Result 
+###Harmful Events with respect to Population Health
+
+With respect to the Population Health, there are two damages caused : fatalities and injuries. The top 10 severity of the harmful events are analysed and plotted below.
+```{r echo=TRUE}
+TOPhealth<-aggregate(cbind(FATALITIES,INJURIES) ~ EVTYPE, data = health, sum, na.rm=TRUE)
+TOPhealth<-arrange(TOPhealth, desc(FATALITIES+INJURIES))
+TOPhealth<-TOPhealth[1:10,]
+TOPhealth
+```
+
+
+```{r echo=TRUE}
+fatal <- aggregate(FATALITIES~EVTYPE,data=storm,FUN=sum,na.rm=TRUE)
+fatal <- fatal[with(fatal,order(-FATALITIES)),]
+fatal <- head(fatal,10)
+fatal
+
+```
+
+
+
+```{r echo=TRUE}
+par(mfrow=c(1,2),mar=c(10,3,3,2))
+barplot(fatal$FATALITIES,names.arg=fatal$EVTYPE,las=2,col="maroon",ylab="fatalities",main="Harmful Events Vs Top 10 fatalities")
+barplot(TOPhealth$INJURIES,names.arg=TOPhealth$EVTYPE,las=2,col="maroon",ylab="injuries",main="Harmful Events Vs Top 10 Injuries")
+
+
+```
+###Economic Impact
+
+
+Now we wil run the code for the severe weather events impact on economics. In order to do so we must first translate the values for PROPDMG and CROPDMG based on the EXP field. In looking at the field we see some anomolies in the data.
+
+
+```{r echo=TRUE}
+table(property$PROPDMGEXP)
+```
+
+
+```{r echo=TRUE}
+table(property$CROPDMGEXP)
+```
+
+To simplify the data and the analysis we will focus our calculation on the alpha designators for hundreds, thousands, etc…. Note: the count for non “blanks” other than alphanumeric designators is immaterial to the population size as a whole.
+
+Calculating the property and crop damage based on the alpha designators.
+```{r}
+
+property$PROPDMGCALC [property$PROPDMG==0] <- 0  
+property$CROPDMGCALC [property$CROPDMG==0] <- 0 
+property$PROPDMGCALC [property$PROPDMGEXP=="H"| property$PROPDMGEXP=="h"]<- property$PROPDMG[property$PROPDMGEXP=="H"|property$PROPDMGEXP=="h"]*100
+property$CROPDMGCALC [property$CROPDMGEXP=="H"| property$CROPDMGEXP=="h"]<- property$CROPDMG[property$CROPDMGEXP=="H"|property$CROPDMGEXP=="h"]*100
+property$PROPDMGCALC [property$PROPDMGEXP=="K"| property$PROPDMGEXP=="k"]<- property$PROPDMG[property$PROPDMGEXP=="K"|property$PROPDMGEXP=="k"]*1000
+property$CROPDMGCALC [property$CROPDMGEXP=="K"| property$CROPDMGEXP=="k"]<- property$CROPDMG[property$CROPDMGEXP=="K"|property$CROPDMGEXP=="k"]*1000
+property$PROPDMGCALC [property$PROPDMGEXP=="M"| property$PROPDMGEXP=="m"]<- property$PROPDMG[property$PROPDMGEXP=="M"|property$PROPDMGEXP=="m"]*1000000
+property$CROPDMGCALC [property$CROPDMGEXP=="M"| property$CROPDMGEXP=="m"]<- property$CROPDMG[property$CROPDMGEXP=="M"|property$CROPDMGEXP=="m"]*1000000
+property$PROPDMGCALC [property$PROPDMGEXP=="B"| property$PROPDMGEXP=="b"]<- property$PROPDMG[property$PROPDMGEXP=="B"|property$PROPDMGEXP=="b"]*1000000000
+property$CROPDMGCALC [property$CROPDMGEXP=="B"| property$CROPDMGEXP=="b"]<- property$CROPDMG[property$CROPDMGEXP=="B"|property$CROPDMGEXP=="b"]*1000000000
+
+
+```
+
+
+```{r echo=TRUE}
+damage<- aggregate(cbind(PROPDMGCALC,CROPDMGCALC)~EVTYPE, data = property, sum, na.rm=TRUE)
+damage<- arrange(damage, desc(PROPDMGCALC+CROPDMGCALC))
+damage<- damage[1:10,]
+damage
+```
+
+Floods top the list as the most impactful to property damage
+```{r echo=TRUE}
+x <- damage$EVTYPE
+damage<- as.matrix(t(damage[,-1]))
+colnames(damage)<-x
+barplot(damage, col = c("Maroon", "yellow"), main = "Impact of Severe Weather Events on Economic Damage")
+legend("topright", c("Property","Crop"), fill = c("Maroon", "yellow"), bty = "x")
+```
+
+##Summary
+Interesting that hurricanes dominates cost damage - and the bulk of that comes from property damage. Not surprising that droughts are mostly costly to crops!
